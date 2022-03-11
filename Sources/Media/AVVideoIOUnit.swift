@@ -425,7 +425,7 @@ extension AVVideoIOUnit {
             duration: sampleBuffer.duration
         )
 
-        mixer?.recorder.appendPixelBuffer(imageBuffer ?? buffer, withPresentationTime: sampleBuffer.presentationTimeStamp)
+        mixer?.recorder.appendPixelBuffer(imageBuffer ?? buffer, withPresentationTime: sampleBuffer.presentationTimeStamp, sampleBuffer: sampleBuffer)
     }
 }
 

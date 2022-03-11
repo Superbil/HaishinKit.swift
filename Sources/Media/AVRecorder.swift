@@ -33,7 +33,9 @@ open class AVRecorder: NSObject {
     open var outputSettings: [AVMediaType: [String: Any]] = AVRecorder.defaultOutputSettings
     open var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     public let lockQueue = DispatchQueue(label: "com.haishinkit.HaishinKit.AVRecorder.lock")
+    private let snapshotQueue = DispatchQueue(label: "com.haishinkit.HaishinKit.AVRecorder.snapshot")
     public private(set) var isRunning: Atomic<Bool> = .init(false)
+    public private(set) var isTakeSnapshot: Atomic<Bool> = .init(false)
     fileprivate(set) var sourceTime = CMTime.zero
 
     var isReadyForStartWriting: Bool {
@@ -70,9 +72,15 @@ open class AVRecorder: NSObject {
                 input.append(sampleBuffer)
             }
         }
+
+        self.snapshotQueue.async {
+            if self.isTakeSnapshot.value, mediaType == .video {
+                self.snapshot(sampleBuffer)
+            }
+        }
     }
 
-    final func appendPixelBuffer(_ pixelBuffer: CVPixelBuffer, withPresentationTime: CMTime) {
+    final func appendPixelBuffer(_ pixelBuffer: CVPixelBuffer, withPresentationTime: CMTime, sampleBuffer: CMSampleBuffer?) {
         lockQueue.async {
             guard let delegate: AVRecorderDelegate = self.delegate, self.isRunning.value else {
                 return
@@ -99,6 +107,13 @@ open class AVRecorder: NSObject {
                 adaptor.append(pixelBuffer, withPresentationTime: withPresentationTime)
             }
         }
+
+        self.snapshotQueue.async {
+            if let sampleBuffer = sampleBuffer, self.isTakeSnapshot.value {
+                self.isTakeSnapshot.mutate { $0 = false }
+                self.snapshot(sampleBuffer)
+            }
+        }
     }
 
     func finishWriting() {
@@ -113,6 +128,23 @@ open class AVRecorder: NSObject {
             self.writer = nil
             self.writerInputs.removeAll()
             self.pixelBufferAdaptor = nil
+        }
+    }
+
+    private func snapshot(_ sampleBuffer: CMSampleBuffer) {
+        guard let image = sampleBuffer.image() else {
+            debugPrint("No image to snapshot.")
+            return
+        }
+        UIImageWriteToSavedPhotosAlbum(image, self, #selector(saveSnapshotCompleted(_:didFinishSavingWithError:contextInfo:)), nil)
+    }
+
+    @objc
+    func saveSnapshotCompleted(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        if let error = error {
+            debugPrint("save image error: \(error)")
+        } else {
+            debugPrint("save finished.")
         }
     }
 }
@@ -137,6 +169,19 @@ extension AVRecorder: Running {
             self.finishWriting()
             self.isRunning.mutate { $0 = false }
             self.delegate?.didStopRunning(self)
+        }
+    }
+}
+
+extension AVRecorder: Snapshot {
+    // MARK: Snapshot
+
+    public func takeSnapshot() {
+        snapshotQueue.async {
+            guard !self.isTakeSnapshot.value else {
+                return
+            }
+            self.isTakeSnapshot.mutate { $0 = true }
         }
     }
 }
