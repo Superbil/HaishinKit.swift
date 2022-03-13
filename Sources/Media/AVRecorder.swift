@@ -72,12 +72,6 @@ open class AVRecorder: NSObject {
                 input.append(sampleBuffer)
             }
         }
-
-        self.snapshotQueue.async {
-            if self.isTakeSnapshot.value, mediaType == .video {
-                self.snapshot(sampleBuffer)
-            }
-        }
     }
 
     final func appendPixelBuffer(_ pixelBuffer: CVPixelBuffer, withPresentationTime: CMTime, sampleBuffer: CMSampleBuffer?) {
