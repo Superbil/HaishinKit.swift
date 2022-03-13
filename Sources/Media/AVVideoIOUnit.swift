@@ -425,7 +425,10 @@ extension AVVideoIOUnit {
             duration: sampleBuffer.duration
         )
 
-        mixer?.recorder.appendPixelBuffer(imageBuffer ?? buffer, withPresentationTime: sampleBuffer.presentationTimeStamp, sampleBuffer: sampleBuffer)
+        if let mixer = mixer {
+            mixer.delegate?.mixer(mixer, didOutput: sampleBuffer)
+            mixer.recorder.appendPixelBuffer(imageBuffer ?? buffer, withPresentationTime: sampleBuffer.presentationTimeStamp, sampleBuffer: sampleBuffer)
+        }
     }
 }
 
