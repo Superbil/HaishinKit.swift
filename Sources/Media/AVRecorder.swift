@@ -11,6 +11,11 @@ public protocol AVRecorderDelegate: AnyObject {
     func didFinishWriting(_ recorder: AVRecorder)
 }
 
+public protocol AVRecorderBufferDelegate: AnyObject {
+    func appendSampleBuffer(_ sampleBuffer: CMSampleBuffer, mediaType: AVMediaType)
+    func appendPixelBuffer(_ pixelBuffer: CVPixelBuffer, withPresentationTime: CMTime, sampleBuffer: CMSampleBuffer?)
+}
+
 // MARK: -
 open class AVRecorder: NSObject {
     public static let defaultOutputSettings: [AVMediaType: [String: Any]] = [
@@ -29,6 +34,7 @@ open class AVRecorder: NSObject {
     open var writer: AVAssetWriter?
     open var fileName: String?
     open weak var delegate: AVRecorderDelegate? = DefaultAVRecorderDelegate.shared
+    open weak var bufferDelegate: AVRecorderBufferDelegate?
     open var writerInputs: [AVMediaType: AVAssetWriterInput] = [:]
     open var outputSettings: [AVMediaType: [String: Any]] = AVRecorder.defaultOutputSettings
     open var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
@@ -46,6 +52,8 @@ open class AVRecorder: NSObject {
     }
 
     final func appendSampleBuffer(_ sampleBuffer: CMSampleBuffer, mediaType: AVMediaType) {
+        bufferDelegate?.appendSampleBuffer(sampleBuffer, mediaType: mediaType)
+
         lockQueue.async {
             guard let delegate: AVRecorderDelegate = self.delegate, self.isRunning.value else {
                 return
@@ -75,6 +83,8 @@ open class AVRecorder: NSObject {
     }
 
     final func appendPixelBuffer(_ pixelBuffer: CVPixelBuffer, withPresentationTime: CMTime, sampleBuffer: CMSampleBuffer?) {
+        bufferDelegate?.appendPixelBuffer(pixelBuffer, withPresentationTime: withPresentationTime, sampleBuffer: sampleBuffer)
+
         lockQueue.async {
             guard let delegate: AVRecorderDelegate = self.delegate, self.isRunning.value else {
                 return
